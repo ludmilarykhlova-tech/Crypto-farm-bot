@@ -10,32 +10,79 @@ from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.storage.memory import MemoryStorage
 
-TOKEN = "8998631035:AAGj3IiYS0cqqNeKB4BTIO3DWDDpr-zXEuYXROCKET_API_TOKEN = "9a9e823f2bb0d99a7b3c8c4e6"
+TOKEN = "8998631035:AAGj3IiYS0cqqNeKB4BTIO3DWDDpr-zXEuY"
+XROCKET_API_TOKEN = "9a9e823f2bb0d99a7b3c8c4e6"
 
 bot = Bot(token=TOKEN)
 dp = Dispatcher(storage=MemoryStorage())
-users = {}
 
-IMG_MINE = "https://images.unsplash.com/photo-1543466835-00a7907e9de1?w=500&auto=format&fit=crop&q=60"
-IMG_PROFILE = "https://i.ibb.co/3ynvchrm/square-gwi-bear.jpg"
+# База данных пользователей в памяти
+users = {}
+# Пользовательские токены {symbol: {"owner": id, "price": pwi, "change": %}}
+custom_tokens = {"$PWI": {"owner": "System", "price": 1.0, "change": "+0%"}}
+# Задания на подписку
+tasks = []
+
+# Реестр 17 животных
+PETS_CATALOG = {
+    # Обычные (10)
+    "hamster": {"name": "🐹 Хомяк", "cost_pwi": 50, "income": 1, "type": "common"},
+    "ferret": {"name": "🦡 Хорёк", "cost_pwi": 100, "income": 2, "type": "common"},
+    "rabbit": {"name": "🐰 Кролик", "cost_pwi": 200, "income": 4, "type": "common"},
+    "cat": {"name": "🐱 Кот", "cost_pwi": 400, "income": 8, "type": "common"},
+    "dog": {"name": "🐶 Собака", "cost_pwi": 800, "income": 15, "type": "common"},
+    "parrot": {"name": "🦜 Попугай", "cost_pwi": 1500, "income": 25, "type": "common"},
+    "raccoon": {"name": "🦝 Енот", "cost_pwi": 3000, "income": 40, "type": "common"},
+    "hedgehog": {"name": "🦔 Еж", "cost_pwi": 5000, "income": 60, "type": "common"},
+    "capybara": {"name": "🦫 Капибара", "cost_pwi": 8000, "income": 90, "type": "common"},
+    "pig": {"name": "🐷 Свинка", "cost_pwi": 12000, "income": 130, "type": "common"},
+    
+    # Премиум (4) - за Мешки/Алмазы
+    "lion": {"name": "🦁 Лев", "cost_bags": 5, "income": 300, "type": "premium"},
+    "phoenix": {"name": "🔥 Феникс", "cost_bags": 15, "income": 800, "type": "premium"},
+    "panther": {"name": "🐆 Пантера", "cost_bags": 30, "income": 1500, "type": "premium"},
+    "griffin": {"name": "🦅 Грифон", "cost_bags": 50, "income": 3000, "type": "premium"},
+    
+    # Супер (3) - за TON
+    "mecha_dragon": {"name": "🤖 Меха-Дракон", "cost_ton": 0.5, "income": 7000, "type": "super"},
+    "space_whale": {"name": "🐋 Космический Кит", "cost_ton": 1.5, "income": 20000, "type": "super"},
+    "abyss_lord": {"name": "👑 Владыка Бездны", "cost_ton": 3.0, "income": 50000, "type": "super"},
+}
 
 def get_user(user_id, name="Игрок"):
     if user_id not in users:
-        users[user_id] = {"name": name, "balance": 10.0, "farm_level": 1, "last_bonus": 0}
+        users[user_id] = {
+            "name": name,
+            "pwi": 100.0,
+            "diamonds": 0,
+            "bags": 0,
+            "farm_level": 1,
+            "last_bonus": 0,
+            "last_mine": 0,
+            "pets": {k: 0 for k in PETS_CATALOG.keys()}
+        }
     else:
         users[user_id]["name"] = name
     return users[user_id]
 
-# Состояния для ввода собственной ставки
 class UnicornGame(StatesGroup):
     waiting_for_bet = State()
+    waiting_for_height = State()
+
+class CreateToken(StatesGroup):
+    waiting_for_name = State()
+
+class CreateTask(StatesGroup):
+    waiting_for_link = State()
+    waiting_for_count = State()
 
 main_keyboard = ReplyKeyboardMarkup(
     keyboard=[
         [KeyboardButton(text="⛏ Майнить"), KeyboardButton(text="💼 Профиль")],
-        [KeyboardButton(text="🦄 Полет Единорога"), KeyboardButton(text="🎁 Ежедневный бонус")],
-        [KeyboardButton(text="🚀 Улучшить ферму"), KeyboardButton(text="🛒 Магазин (Купить монеты)")],
-        [KeyboardButton(text="🏆 Топ игроков")]
+        [KeyboardButton(text="🐾 Животные"), KeyboardButton(text="🦄 Высота Единорога")],
+        [KeyboardButton(text="💎 Задания (Алмазы)"), KeyboardButton(text="📈 Биржа Токенов")],
+        [KeyboardButton(text="🎁 Бонус (10 PWI)"), KeyboardButton(text="🛒 P2P Маркет")],
+        [KeyboardButton(text="🏆 Топ")]
     ],
     resize_keyboard=True
 )
@@ -44,208 +91,187 @@ main_keyboard = ReplyKeyboardMarkup(
 async def cmd_start(message: types.Message, state: FSMContext):
     await state.clear()
     get_user(message.from_user.id, message.from_user.first_name)
-    await message.answer(
-        "👋 **Добро пожаловать в My Pet Farm!**\n\nМайните монеты, запускайте единорога в полёт и развивайте питомца!", 
-        reply_markup=main_keyboard
-    )
+    await message.answer("👋 **Добро пожаловать в PWI Farm World!**", reply_markup=main_keyboard)
 
+# 1. МАЙНИНГ С ТАЙМАУТОМ 3 СЕК
 @dp.message(F.text == "⛏ Майнить")
-@dp.message(Command("mine"))
 async def process_mine(message: types.Message):
     user = get_user(message.from_user.id, message.from_user.first_name)
-    mined = 0.5 * user["farm_level"]
-    user["balance"] += mined
-    await message.answer_photo(
-        photo=IMG_MINE,
-        caption=f"⛏ **{user['name']}**, твой питомец поработал!\n\nСмайнено: **+{mined}** монет!\nБаланс: **{user['balance']:.2f}**"
-    )
-
-@dp.message(F.text == "💼 Профиль")
-@dp.message(Command("balance"))
-async def process_profile(message: types.Message):
-    user = get_user(message.from_user.id, message.from_user.first_name)
-    await message.answer_photo(
-        photo=IMG_PROFILE,
-        caption=f"💼 **Профиль {user['name']}:**\n\n💰 Баланс: **{user['balance']:.2f}** монет\n⚡ Уровень фермы: **{user['farm_level']} lvl**"
-    )
-
-# ================= ИГРА: ПОЛЕТ ЕДИНОРОГА =================
-
-@dp.message(F.text == "🦄 Полет Единорога")
-async def start_unicorn_game(message: types.Message, state: FSMContext):
-    user = get_user(message.from_user.id, message.from_user.first_name)
-    if user["balance"] <= 0:
-        await message.answer("❌ У вас 0 монет! Смайните немного монет, чтобы играть.")
+    now = time.time()
+    if now - user["last_mine"] < 3:
+        await message.answer("⏳ Не спамь! Майнить можно раз в 3 секунды.")
         return
-        
-    await message.answer(
-        f"🦄 **Полет Единорога!**\n\n💰 Ваш баланс: **{user['balance']:.2f}** монет.\n\nНапишите в чат **сумму ставки**, которую хотите поставить:"
+    user["last_mine"] = now
+    
+    pet_income = sum(user["pets"][k] * PETS_CATALOG[k]["income"] for k in PETS_CATALOG)
+    mined = (1.0 * user["farm_level"]) + pet_income
+    user["pwi"] += mined
+    
+    await message.answer(f"⛏ Смайнено: **+{mined:.1f} PWI**\n💰 Баланс: **{user['pwi']:.2f} PWI**")
+
+# 2. ПРОФИЛЬ
+@dp.message(F.text == "💼 Профиль")
+async def process_profile(message: types.Message):
+    u = get_user(message.from_user.id, message.from_user.first_name)
+    total_pets = sum(u["pets"].values())
+    text = (
+        f"💼 **Профиль {u['name']}:**\n\n"
+        f"🪙 Баланс PWI: **{u['pwi']:.2f}**\n"
+        f"💎 Алмазы: **{u['diamonds']}**\n"
+        f"🎒 Мешки с деньгами: **{u['bags']}**\n"
+        f"⚡ Уровень фермы: **{u['farm_level']} lvl**\n"
+        f"🐾 Всего питомцев: **{total_pets} шт.**"
     )
+    await message.answer(text)
+
+# 3. ЕЖЕДНЕВНЫЙ БОНУС (10 PWI)
+@dp.message(F.text == "🎁 Бонус (10 PWI)")
+async def process_bonus(message: types.Message):
+    u = get_user(message.from_user.id, message.from_user.first_name)
+    now = time.time()
+    if now - u["last_bonus"] < 86400:
+        await message.answer("⏳ Ежедневный бонус уже получен! Приходи завтра.")
+        return
+    u["last_bonus"] = now
+    u["pwi"] += 10.0
+    await message.answer("🎁 Вы получили **+10.0 PWI**!")
+
+# 4. РАЗДЕЛ "ЖИВОТНЫЕ" (17 ВИДОВ)
+@dp.message(F.text == "🐾 Животные")
+async def process_pets_menu(message: types.Message):
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="📦 Обычные (За PWI)", callback_data="cat_common")],
+        [InlineKeyboardButton(text="💼 Премиум (За Мешки)", callback_data="cat_premium")],
+        [InlineKeyboardButton(text="👑 Супер (За TON)", callback_data="cat_super")]
+    ])
+    await message.answer("🐾 **Каталог Животных (17 видов):**\nВыберите категорию:", reply_markup=kb)
+
+@dp.callback_query(F.data.startswith("cat_"))
+async def process_category(callback: types.CallbackQuery):
+    cat = callback.data.split("_")[1]
+    buttons = []
+    for k, v in PETS_CATALOG.items():
+        if v["type"] == cat:
+            if cat == "common":
+                txt = f"{v['name']} — {v['cost_pwi']} PWI (+{v['income']}/клик)"
+            elif cat == "premium":
+                txt = f"{v['name']} — {v['cost_bags']} Мешков (+{v['income']}/клик)"
+            else:
+                txt = f"{v['name']} — {v['cost_ton']} TON (+{v['income']}/клик)"
+            buttons.append([InlineKeyboardButton(text=txt, callback_data=f"buy_pet_{k}")])
+    
+    await callback.message.edit_text("Выберите питомца для покупки:", reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons))
+
+@dp.callback_query(F.data.startswith("buy_pet_"))
+async def buy_pet(callback: types.CallbackQuery):
+    pet_key = callback.data.replace("buy_pet_", "")
+    pet = PETS_CATALOG[pet_key]
+    u = get_user(callback.from_user.id, callback.from_user.first_name)
+    
+    if pet["type"] == "common":
+        if u["pwi"] < pet["cost_pwi"]:
+            await callback.answer("❌ Недостаточно PWI!", show_alert=True)
+            return
+        u["pwi"] -= pet["cost_pwi"]
+    elif pet["type"] == "premium":
+        if u["bags"] < pet["cost_bags"]:
+            await callback.answer("❌ Недостаточно Мешков с деньгами!", show_alert=True)
+            return
+        u["bags"] -= pet["cost_bags"]
+    elif pet["type"] == "super":
+        await callback.answer("👑 Супер-питомцы покупаются через счет xRocket!", show_alert=True)
+        return
+
+    u["pets"][pet_key] += 1
+    await callback.message.answer(f"🎉 Вы купили **{pet['name']}**!")
+    await callback.answer()
+
+# 5. ВЫСОТА ЕДИНОРОГА
+@dp.message(F.text == "🦄 Высота Единорога")
+async def start_unicorn(message: types.Message, state: FSMContext):
+    u = get_user(message.from_user.id, message.from_user.first_name)
+    if u["pwi"] < 1:
+        await message.answer("❌ У вас слишком мало PWI монет!")
+        return
+    await message.answer(f"🦄 **Высота Единорога**\nБаланс: **{u['pwi']:.2f} PWI**\n\nВведите сумму ставки PWI:")
     await state.set_state(UnicornGame.waiting_for_bet)
 
 @dp.message(UnicornGame.waiting_for_bet)
-async def process_bet_input(message: types.Message, state: FSMContext):
-    user = get_user(message.from_user.id, message.from_user.first_name)
-    
+async def unicorn_bet(message: types.Message, state: FSMContext):
     try:
         bet = float(message.text.replace(",", "."))
     except ValueError:
-        await message.answer("⚠️ Пожалуйста, введите корректное число (например: 2 или 5.5):")
+        await message.answer("⚠️ Введите число:")
         return
-
-    if bet <= 0:
-        await message.answer("⚠️ Ставка должна быть больше 0! Введите сумму заново:")
+    u = get_user(message.from_user.id, message.from_user.first_name)
+    if bet <= 0 or bet > u["pwi"]:
+        await message.answer("⚠️ Неверная ставка!")
         return
-
-    if bet > user["balance"]:
-        await message.answer(f"❌ У вас нет столько монет! У вас на балансе: **{user['balance']:.2f}**. Введите сумму меньше:")
-        return
-
-    # Сохраняем ставку в память
     await state.update_data(bet=bet)
+    await message.answer("✨ Задайте целевую **высоту полёта** (от 2 до 36):")
+    await state.set_state(UnicornGame.waiting_for_height)
 
-    kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="🌈 До Радуги (x1.5)", callback_data="uni_rainbow")],
-        [InlineKeyboardButton(text="☁️ До Облаков (x2.0)", callback_data="uni_clouds")],
-        [InlineKeyboardButton(text="⭐️ До Космоса (x5.0)", callback_data="uni_space")]
-    ])
-    
-    await message.answer(
-        f"Ставка принята: **{bet}** монет!\n\n✨ **Угадай, до куда долетит единорог?**", 
-        reply_markup=kb
-    )
-
-@dp.callback_query(F.data.startswith("uni_"))
-async def process_unicorn_flight(callback: types.CallbackQuery, state: FSMContext):
-    user_data = await state.get_data()
-    bet = user_data.get("bet")
-
-    if not bet:
-        await callback.answer("⚠️ Время ожидания истекло. Нажмите кнопку '🦄 Полет Единорога' заново.", show_alert=True)
+@dp.message(UnicornGame.waiting_for_height)
+async def unicorn_height(message: types.Message, state: FSMContext):
+    try:
+        target_h = int(message.text)
+    except ValueError:
+        await message.answer("⚠️ Введите целое число от 2 до 36:")
         return
-
-    user = get_user(callback.from_user.id, callback.from_user.first_name)
-    
-    if user["balance"] < bet:
-        await callback.answer("❌ Недостаточно средств!", show_alert=True)
-        await state.clear()
+    if target_h < 2 or target_h > 36:
+        await message.answer("⚠️ Высота должна быть в пределах от 2 до 36!")
         return
-
-    target = callback.data.split("_")[1]
+        
+    data = await state.get_data()
+    bet = data["bet"]
+    u = get_user(message.from_user.id, message.from_user.first_name)
     
-    # Шансы: rainbow (70%), clouds (50%), space (20%)
-    chances = {"rainbow": 70, "clouds": 50, "space": 20}
-    multipliers = {"rainbow": 1.5, "clouds": 2.0, "space": 5.0}
-    names = {"rainbow": "🌈 Радуги", "clouds": "☁️ Облаков", "space": "⭐️ Космоса"}
-
-    roll = random.randint(1, 100)
-    is_win = roll <= chances[target]
-
-    if is_win:
-        win_amount = bet * multipliers[target]
-        profit = win_amount - bet
-        user["balance"] += profit
-        await callback.message.edit_text(
-            f"🦄✨ **Единорог успешно долетел до {names[target]}!**\n\n🎉 Вы угадали и выиграли **+{win_amount:.2f}** монет!\n💰 Ваш баланс: **{user['balance']:.2f}**"
-        )
+    actual_height = random.randint(1, 40)
+    mult = round(target_h * 1.2, 2)
+    
+    if actual_height >= target_h:
+        win = bet * mult
+        u["pwi"] += (win - bet)
+        await message.answer(f"🦄 УРА! Единорог набрал высоту **{actual_height}**!\nВы заказывали **{target_h}** и выиграли **+{win:.2f} PWI** (x{mult})!")
     else:
-        user["balance"] -= bet
-        await callback.message.edit_text(
-            f"🦄💨 **Единорог устал и приземлился раньше...**\n\n💥 Вы не долетели до {names[target]} и потеряли **-{bet:.2f}** монет.\n💰 Ваш баланс: **{user['balance']:.2f}**"
-        )
-
+        u["pwi"] -= bet
+        await message.answer(f"💥 Увы! Единорог упал на высоте **{actual_height}** (не долетел до {target_h}).\nПроигрыш: **-{bet:.2f} PWI**.")
     await state.clear()
-    await callback.answer()
 
-# ================= МАГАЗИН И ПРОЧЕЕ =================
-
-@dp.message(F.text == "🛒 Магазин (Купить монеты)")
-@dp.message(Command("shop"))
-async def process_shop(message: types.Message):
-    shop_inline_kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="💰 100 монет — 1 TON", callback_data="buy_100")],
-        [InlineKeyboardButton(text="🚀 500 монет — 4.5 TON", callback_data="buy_500")],
-        [InlineKeyboardButton(text="👑 1500 монет — 10 TON", callback_data="buy_1500")]
+# 6. БИРЖА ЗАДАНИЙ (ПОДПИСКИ ЗА TON И АЛМАЗЫ)
+@dp.message(F.text == "💎 Задания (Алмазы)")
+async def process_tasks(message: types.Message):
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="➕ Заказать подписчиков (0.05 TON/шт)", callback_data="create_sub_task")],
+        [InlineKeyboardButton(text="📋 Список заданий (+1 Алмаз)", callback_data="list_sub_tasks")]
     ])
-    await message.answer("🚀 **Магазин xRocket Pay**", reply_markup=shop_inline_kb)
+    await message.answer("💎 **Биржа Заданий:**\nВыполняйте задания и получайте Алмазы!", reply_markup=kb)
 
-@dp.callback_query(F.data.startswith("buy_"))
-async def process_buy_callback(callback: types.CallbackQuery):
-    amount_str = callback.data.split("_")[1]
-    prices = {"100": 1.0, "500": 4.5, "1500": 10.0}
-    price = prices.get(amount_str, 1.0)
-    
-    async with aiohttp.ClientSession() as session:
-        headers = {"Rocket-Pay-Key": XROCKET_API_TOKEN, "Content-Type": "application/json"}
-        payload = {"amount": price, "currency": "TON", "description": f"Покупка {amount_str} монет", "customData": f"{callback.from_user.id}_{amount_str}"}
-        try:
-            async with session.post("https://pay.tigo.la/api/tg-invoices", json=payload, headers=headers) as resp:
-                data = await resp.json()
-                if data.get("success") and "data" in data:
-                    pay_url = data["data"]["link"]
-                    invoice_id = data["data"]["id"]
-                    pay_kb = InlineKeyboardMarkup(inline_keyboard=[
-                        [InlineKeyboardButton(text="🚀 Оплатить", url=pay_url)],
-                        [InlineKeyboardButton(text="✅ Проверить", callback_data=f"check_{invoice_id}_{amount_str}")]
-                    ])
-                    await callback.message.answer(f"🧾 **Счет на {amount_str} монет ({price} TON):**", reply_markup=pay_kb)
-                else:
-                    await callback.message.answer("⚠️ Ошибка счета в xRocket.")
-        except Exception:
-            await callback.message.answer("⚠️ Ошибка сети.")
+@dp.callback_query(F.data == "create_sub_task")
+async def start_create_task(callback: types.CallbackQuery, state: FSMContext):
+    await callback.message.answer("Отправьте ссылку на ваш Telegram канал (например https://t.me/your_channel):")
+    await state.set_state(CreateTask.waiting_for_link)
     await callback.answer()
 
-@dp.callback_query(F.data.startswith("check_"))
-async def check_payment(callback: types.CallbackQuery):
-    _, invoice_id, amount_str = callback.data.split("_")
-    async with aiohttp.ClientSession() as session:
-        headers = {"Rocket-Pay-Key": XROCKET_API_TOKEN}
-        try:
-            async with session.get(f"https://pay.tigo.la/api/tg-invoices/{invoice_id}", headers=headers) as resp:
-                data = await resp.json()
-                if data.get("success") and "data" in data and data["data"]["status"] == "PAID":
-                    user = get_user(callback.from_user.id, callback.from_user.first_name)
-                    user["balance"] += float(amount_str)
-                    await callback.message.edit_text(f"🎉 **Оплачено!** Зачислено **+{amount_str}** монет!")
-                else:
-                    await callback.answer("⏳ Еще не оплачено!", show_alert=True)
-        except Exception:
-            await callback.answer("⚠️ Ошибка проверки.", show_alert=True)
+@dp.message(CreateTask.waiting_for_link)
+async def task_link(message: types.Message, state: FSMContext):
+    await state.update_data(link=message.text)
+    await message.answer("Сколько подписчиков вам нужно? (0.05 TON за 1 подписчика):")
+    await state.set_state(CreateTask.waiting_for_count)
 
-@dp.message(F.text == "🎁 Ежедневный бонус")
-@dp.message(Command("bonus"))
-async def process_bonus(message: types.Message):
-    user = get_user(message.from_user.id, message.from_user.first_name)
-    now = time.time()
-    if now - user["last_bonus"] < 86400:
-        await message.answer("⏳ Бонус уже получен! Приходите завтра.")
+@dp.message(CreateTask.waiting_for_count)
+async def task_count(message: types.Message, state: FSMContext):
+    try:
+        count = int(message.text)
+    except ValueError:
+        await message.answer("⚠️ Введите число:")
         return
-    user["last_bonus"] = now
-    user["balance"] += 10.0
-    await message.answer("🎁 Вы получили **+10** монет!")
+    data = await state.get_data()
+    ton_cost = count * 0.05
+    await message.answer(f"🧾 Заказ: {count} подписок на {data['link']}\nК оплате: **{ton_cost:.2f} TON** (Оплатите через xRocket).")
+    await state.clear()
 
-@dp.message(F.text == "🚀 Улучшить ферму")
-@dp.message(Command("upgrade"))
-async def process_upgrade(message: types.Message):
-    user = get_user(message.from_user.id, message.from_user.first_name)
-    cost = user["farm_level"] * 20
-    if user["balance"] < cost:
-        await message.answer(f"❌ Нужно **{cost}** монет!")
-        return
-    user["balance"] -= cost
-    user["farm_level"] += 1
-    await message.answer(f"🚀 Уровень повышен до **{user['farm_level']}**!")
-
-@dp.message(F.text == "🏆 Топ игроков")
-@dp.message(Command("top"))
-async def process_top(message: types.Message):
-    if not users:
-        await message.answer("🏆 Топ пуст!")
-        return
-    sorted_users = sorted(users.values(), key=lambda x: x["balance"], reverse=True)[:10]
-    top_text = "🏆 **ТОП ИГРОКОВ:**\n\n" + "\n".join([f"{i}. {u['name']} — {u['balance']:.2f}" for i, u in enumerate(sorted_users, 1)])
-    await message.answer(top_text)
-
+# WEB SERVER & MAIN
 async def handle_health_check(request):
     return web.Response(text="OK")
 
