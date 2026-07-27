@@ -27,13 +27,13 @@ def get_user(user_id, name="Игрок"):
 main_keyboard = ReplyKeyboardMarkup(
     keyboard=[
         [KeyboardButton(text="⛏ Майнить"), KeyboardButton(text="💼 Профиль")],
-        [KeyboardButton(text="🎲 Игра: Кости"), KeyboardButton(text="🎁 Ежедневный бонус")],
-        [KeyboardButton(text="🚀 Улучшить ферму"), KeyboardButton(text="🛒 Магазин (Купить монеты)")],
-        [KeyboardButton(text="🏆 Топ игроков")]
+        [KeyboardButton(text="🎲 Игра: Кости"), KeyboardButton(text="🎰 Слоты (Казино)")],
+        [KeyboardButton(text="🪙 Орел или Решка"), KeyboardButton(text="🎯 Рулетка (Красное/Черное)")],
+        [KeyboardButton(text="🚀 Улучшить ферму"), KeyboardButton(text="🎁 Ежедневный бонус")],
+        [KeyboardButton(text="🛒 Магазин (Купить монеты)"), KeyboardButton(text="🏆 Топ игроков")]
     ],
     resize_keyboard=True
 )
-
 @dp.message(Command("start"))
 async def cmd_start(message: types.Message):
     get_user(message.from_user.id, message.from_user.first_name)
@@ -199,3 +199,103 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+
+# ================= РАЗДЕЛ НОВЫХ ИГР =================
+
+@dp.message(F.text == "🎰 Слоты (Казино)")
+@dp.message(Command("slots"))
+async def process_slots(message: types.Message):
+    user = get_user(message.from_user.id, message.from_user.first_name)
+    bet = 3.0
+    
+    if user["balance"] < bet:
+        await message.answer(f"❌ Недостаточно монет! Ставка в слотах — **{bet}** монет.")
+        return
+        
+    user["balance"] -= bet
+    msg = await message.answer_dice(emoji="🎰")
+    val = msg.dice.value
+    await asyncio.sleep(2)  # Ждем пока докрутится анимация
+    
+    # В телеграме 64 = три 777
+    if val == 64:
+        win = 50.0
+        user["balance"] += win
+        await message.answer(f"💥 **ДЖЕКПОТ 777!** Вы выиграли **+{win}** монет!\nБаланс: **{user['balance']:.2f}**")
+    elif val in [1, 22, 43]:  # Три одинаковых символа
+        win = 10.0
+        user["balance"] += win
+        await message.answer(f"🎉 **ТРИ В РЯД!** Вы выиграли **+{win}** монет!\nБаланс: **{user['balance']:.2f}**")
+    else:
+        await message.answer(f"Увы, не повезло! -{bet} монет.\nБаланс: **{user['balance']:.2f}**")
+
+@dp.message(F.text == "🪙 Орел или Решка")
+@dp.message(Command("coin"))
+async def process_coin_menu(message: types.Message):
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🦅 Орел", callback_data="coin_eagle"), InlineKeyboardButton(text="🪙 Решка", callback_data="coin_tails")]
+    ])
+    await message.answer("🪙 **Орел или Решка**\nСтавка: **1.0 монета**.\nВыбирай сторону:", reply_markup=kb)
+
+@dp.callback_query(F.data.startswith("coin_"))
+async def process_coin_play(callback: types.CallbackQuery):
+    user = get_user(callback.from_user.id, callback.from_user.first_name)
+    bet = 1.0
+    
+    if user["balance"] < bet:
+        await callback.answer("❌ Недостаточно монет!", show_alert=True)
+        return
+        
+    choice = callback.data.split("_")[1]
+    res = random.choice(["eagle", "tails"])
+    res_text = "🦅 Орел" if res == "eagle" else "🪙 Решка"
+    
+    if choice == res:
+        user["balance"] += bet
+        await callback.message.answer(f"🎉 Выпал **{res_text}**! Вы выиграли **+{bet}** монет!\nБаланс: **{user['balance']:.2f}**")
+    else:
+        user["balance"] -= bet
+        await callback.message.answer(f"💥 Выпал **{res_text}**! Вы проиграли **-{bet}** монет.\nБаланс: **{user['balance']:.2f}**")
+    await callback.answer()
+
+@dp.message(F.text == "🎯 Рулетка (Красное/Черное)")
+@dp.message(Command("roulette"))
+async def process_roulette_menu(message: types.Message):
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🔴 Красное", callback_data="roul_red"), InlineKeyboardButton(text="⚫ Черное", callback_data="roul_black")],
+        [InlineKeyboardButton(text="🟢 Зеленое (Зеро x14)", callback_data="roul_zero")]
+    ])
+    await message.answer("🎯 **Русская Рулетка**\nСтавка: **5.0 монет**.\nСделай свою ставку:", reply_markup=kb)
+
+@dp.callback_query(F.data.startswith("roul_"))
+async def process_roulette_play(callback: types.CallbackQuery):
+    user = get_user(callback.from_user.id, callback.from_user.first_name)
+    bet = 5.0
+    
+    if user["balance"] < bet:
+        await callback.answer("❌ Недостаточно монет!", show_alert=True)
+        return
+        
+    choice = callback.data.split("_")[1]
+    # 0 - зеленое, 1-18 красное, 19-36 черное
+    spin = random.randint(0, 36)
+    
+    if spin == 0:
+        res = "zero"
+        color_text = "🟢 ЗЕРО (0)"
+    elif spin % 2 == 0:
+        res = "red"
+        color_text = f"🔴 Красное ({spin})"
+    else:
+        res = "black"
+        color_text = f"⚫ Черное ({spin})"
+        
+    if choice == res:
+        win_mult = 14 if res == "zero" else 2
+        win_amount = bet * win_mult
+        user["balance"] += (win_amount - bet)
+        await callback.message.answer(f"🎉 Выпало **{color_text}**!\nВы выиграли **+{win_amount}** монет!\nБаланс: **{user['balance']:.2f}**")
+    else:
+        user["balance"] -= bet
+        await callback.message.answer(f"💥 Выпало **{color_text}**!\nВы потеряли **-{bet}** монет.\nБаланс: **{user['balance']:.2f}**")
+    await callback.answer()
