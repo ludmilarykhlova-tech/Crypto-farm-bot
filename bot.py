@@ -7,14 +7,14 @@ from aiogram import Bot, Dispatcher, types, F
 from aiogram.filters import Command
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
 
-TOKEN = "8818091251:AAHLxobo0WNLkJ-RrjuMXuquA6xf5mrMA-g"
+TOKEN = "8998631035:AAGj3IiYS0cqqNeKB4BTIO3DWDDpr-zXEuY"
 XROCKET_API_TOKEN = "9a9e823f2bb0d99a7b3c8c4e6"
 bot = Bot(token=TOKEN)
 dp = Dispatcher()
 users = {}
 
 IMG_MINE = "https://images.unsplash.com/photo-1543466835-00a7907e9de1?w=500&auto=format&fit=crop&q=60"
-IMG_PROFILE = "https://photos.app.goo.gl/dda3yyps1zUXU4U98IMG_WIN = "https://images.unsplash.com/photo-1537151625747-768eb6cf92b2?w=500&auto=format&fit=crop&q=60"
+IMG_PROFILE = "https://i.ibb.co/3ynvchrm/square-gwi-bear.jpg"
 IMG_LOSE = "https://images.unsplash.com/photo-1541364983171-a8ba01e95cfc?w=500&auto=format&fit=crop&q=60"
 
 def get_user(user_id, name="Игрок"):
