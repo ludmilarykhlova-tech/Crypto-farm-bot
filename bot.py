@@ -8,17 +8,16 @@ from aiogram.filters import Command
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
 
 TOKEN = "8818091251:AAHLxobo0WNLkJ-RrjuMXuquA6xf5mrMA-g"
-XROCKET_API_TOKEN = "9a9e823f2bb0d99a7b3c8c4e6"
+XROCKET_API_TOKEN = "ВСТАВЬ_ТОКЕН_ИЗ_XROCKET"
 
 bot = Bot(token=TOKEN)
 dp = Dispatcher()
 users = {}
 
-# Ссылки на картинки (можешь заменить на свои)
-IMG_MINE = "https://images.unsplash.com/photo-1543466835-00a7907e9de1?w=500&auto=format&fit=crop&q=60"      # Питомец при майнинге
-IMG_PROFILE = "https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=500&auto=format&fit=crop&q=60"   # Питомец в профиле
-IMG_WIN = "https://images.unsplash.com/photo-1537151625747-768eb6cf92b2?w=500&auto=format&fit=crop&q=60"       # Смешная картинка ПОБЕДЫ
-IMG_LOSE = "https://images.unsplash.com/photo-1541364983171-a8ba01e95cfc?w=500&auto=format&fit=crop&q=60"      # Смешная картинка ПРОМАХА
+IMG_MINE = "https://images.unsplash.com/photo-1543466835-00a7907e9de1?w=500&auto=format&fit=crop&q=60"
+IMG_PROFILE = "https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=500&auto=format&fit=crop&q=60"
+IMG_WIN = "https://images.unsplash.com/photo-1537151625747-768eb6cf92b2?w=500&auto=format&fit=crop&q=60"
+IMG_LOSE = "https://images.unsplash.com/photo-1541364983171-a8ba01e95cfc?w=500&auto=format&fit=crop&q=60"
 
 def get_user(user_id, name="Игрок"):
     if user_id not in users:
@@ -62,8 +61,6 @@ async def process_profile(message: types.Message):
         caption=f"💼 Профиль {user['name']}:\n\n💰 Баланс: {user['balance']:.2f} монет\n⚡ Уровень фермы: {user['farm_level']} lvl"
     )
 
-# --- МИНИ-ИГРА "КОСТИ" С КАРТИНКАМИ ПОПАДАНИЯ / ПРОМАХА ---
-
 @dp.message(F.text == "🎲 Игра: Кости")
 async def process_dice_menu(message: types.Message):
     user = get_user(message.from_user.id, message.from_user.first_name)
@@ -81,10 +78,9 @@ async def process_dice_play(callback: types.CallbackQuery):
         await callback.answer("❌ Недостаточно монет для игры! Смайните ещё.", show_alert=True)
         return
         
-    choice = callback.data.split("_")[1] # even или odd
+    choice = callback.data.split("_")[1]
     dice_val = random.randint(1, 6)
-
-is_even = (dice_val % 2 == 0)
+    is_even = (dice_val % 2 == 0)
     
     win = (choice == "even" and is_even) or (choice == "odd" and not is_even)
     
@@ -93,6 +89,7 @@ is_even = (dice_val % 2 == 0)
         await callback.message.answer_photo(
             photo=IMG_WIN,
             caption=f"🎯 ПОПАДАНИЕ!\nВыпало число {dice_val}!\nВы выиграли +{bet} монет!\nБаланс: {user['balance']:.2f}"
+
         )
     else:
         user["balance"] -= bet
@@ -101,8 +98,6 @@ is_even = (dice_val % 2 == 0)
             caption=f"💥 ПРОМАХ!\nВыпало число {dice_val}!\nВы потеряли -{bet} монет.\nБаланс: {user['balance']:.2f}"
         )
     await callback.answer()
-
-# --- МАГАЗИН И XROCKET ---
 
 @dp.message(F.text == "🛒 Магазин (Купить монеты)")
 @dp.message(Command("shop"))
@@ -159,7 +154,6 @@ async def check_payment(callback: types.CallbackQuery):
 
 @dp.message(F.text == "🎁 Ежедневный бонус")
 @dp.message(Command("bonus"))
-
 async def process_bonus(message: types.Message):
     user = get_user(message.from_user.id, message.from_user.first_name)
     now = time.time()
