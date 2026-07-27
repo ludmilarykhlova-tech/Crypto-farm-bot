@@ -2,8 +2,7 @@ import asyncio
 from aiohttp import web
 from aiogram import Bot, Dispatcher, types, F
 
-TOKEN = "8818091251:AAHLxobo0WNLkJ-RjjuMXuquA6xf5mrMA-g"
-
+TOKEN = "8818091251:AAHLxobo0WNLkJ-RrjuMXuquA6xf5mrMA-g"
 bot = Bot(token=TOKEN)
 dp = Dispatcher()
 
