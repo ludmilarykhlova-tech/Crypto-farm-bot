@@ -1,5 +1,6 @@
 import asyncio
 import time
+import random
 import aiohttp
 from aiohttp import web
 from aiogram import Bot, Dispatcher, types, F
@@ -13,9 +14,15 @@ bot = Bot(token=TOKEN)
 dp = Dispatcher()
 users = {}
 
+# Ссылки на картинки (можешь заменить на свои)
+IMG_MINE = "https://images.unsplash.com/photo-1543466835-00a7907e9de1?w=500&auto=format&fit=crop&q=60"      # Питомец при майнинге
+IMG_PROFILE = "https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=500&auto=format&fit=crop&q=60"   # Питомец в профиле
+IMG_WIN = "https://images.unsplash.com/photo-1537151625747-768eb6cf92b2?w=500&auto=format&fit=crop&q=60"       # Смешная картинка ПОБЕДЫ
+IMG_LOSE = "https://images.unsplash.com/photo-1541364983171-a8ba01e95cfc?w=500&auto=format&fit=crop&q=60"      # Смешная картинка ПРОМАХА
+
 def get_user(user_id, name="Игрок"):
     if user_id not in users:
-        users[user_id] = {"name": name, "balance": 0.0, "farm_level": 1, "last_bonus": 0}
+        users[user_id] = {"name": name, "balance": 10.0, "farm_level": 1, "last_bonus": 0}
     else:
         users[user_id]["name"] = name
     return users[user_id]
@@ -23,8 +30,9 @@ def get_user(user_id, name="Игрок"):
 main_keyboard = ReplyKeyboardMarkup(
     keyboard=[
         [KeyboardButton(text="⛏ Майнить"), KeyboardButton(text="💼 Профиль")],
-        [KeyboardButton(text="🎁 Ежедневный бонус"), KeyboardButton(text="🚀 Улучшить ферму")],
-        [KeyboardButton(text="🛒 Магазин (Купить монеты)"), KeyboardButton(text="🏆 Топ игроков")]
+        [KeyboardButton(text="🎲 Игра: Кости"), KeyboardButton(text="🎁 Ежедневный бонус")],
+        [KeyboardButton(text="🚀 Улучшить ферму"), KeyboardButton(text="🛒 Магазин (Купить монеты)")],
+        [KeyboardButton(text="🏆 Топ игроков")]
     ],
     resize_keyboard=True
 )
@@ -32,7 +40,7 @@ main_keyboard = ReplyKeyboardMarkup(
 @dp.message(Command("start"))
 async def cmd_start(message: types.Message):
     get_user(message.from_user.id, message.from_user.first_name)
-    await message.answer("👋 Добро пожаловать в My Pet Farm!\n\nМайните, прокачивайтесь и соревнуйтесь!", reply_markup=main_keyboard)
+    await message.answer("👋 Добро пожаловать в My Pet Farm!\n\nМайните монеты, играйте в кубик и развивайте питомца!", reply_markup=main_keyboard)
 
 @dp.message(F.text == "⛏ Майнить")
 @dp.message(Command("mine"))
@@ -40,24 +48,70 @@ async def process_mine(message: types.Message):
     user = get_user(message.from_user.id, message.from_user.first_name)
     mined = 0.5 * user["farm_level"]
     user["balance"] += mined
-    await message.answer(f"⛏ {user['name']}, смайнено +{mined}!\nБаланс: {user['balance']:.2f}")
+    await message.answer_photo(
+        photo=IMG_MINE,
+        caption=f"⛏ {user['name']}, твой питомец поработал!\n\nСмайнено: +{mined} монет!\nБаланс: {user['balance']:.2f}"
+    )
 
 @dp.message(F.text == "💼 Профиль")
 @dp.message(Command("balance"))
 async def process_profile(message: types.Message):
     user = get_user(message.from_user.id, message.from_user.first_name)
-    await message.answer(f"💼 Профиль {user['name']}:\n\n💰 Баланс: {user['balance']:.2f}\n⚡ Уровень: {user['farm_level']} lvl")
+    await message.answer_photo(
+        photo=IMG_PROFILE,
+        caption=f"💼 Профиль {user['name']}:\n\n💰 Баланс: {user['balance']:.2f} монет\n⚡ Уровень фермы: {user['farm_level']} lvl"
+    )
+
+# --- МИНИ-ИГРА "КОСТИ" С КАРТИНКАМИ ПОПАДАНИЯ / ПРОМАХА ---
+
+@dp.message(F.text == "🎲 Игра: Кости")
+async def process_dice_menu(message: types.Message):
+    user = get_user(message.from_user.id, message.from_user.first_name)
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="1️⃣ Четное", callback_data="dice_even"), InlineKeyboardButton(text="2️⃣ Нечетное", callback_data="dice_odd")]
+    ])
+    await message.answer(f"🎲 Игра в Кости\nСтавка: 2.0 монеты.\nУгадай, чётное или нечётное число выпадет!", reply_markup=kb)
+
+@dp.callback_query(F.data.startswith("dice_"))
+async def process_dice_play(callback: types.CallbackQuery):
+    user = get_user(callback.from_user.id, callback.from_user.first_name)
+    bet = 2.0
+    
+    if user["balance"] < bet:
+        await callback.answer("❌ Недостаточно монет для игры! Смайните ещё.", show_alert=True)
+        return
+        
+    choice = callback.data.split("_")[1] # even или odd
+    dice_val = random.randint(1, 6)
+
+is_even = (dice_val % 2 == 0)
+    
+    win = (choice == "even" and is_even) or (choice == "odd" and not is_even)
+    
+    if win:
+        user["balance"] += bet
+        await callback.message.answer_photo(
+            photo=IMG_WIN,
+            caption=f"🎯 ПОПАДАНИЕ!\nВыпало число {dice_val}!\nВы выиграли +{bet} монет!\nБаланс: {user['balance']:.2f}"
+        )
+    else:
+        user["balance"] -= bet
+        await callback.message.answer_photo(
+            photo=IMG_LOSE,
+            caption=f"💥 ПРОМАХ!\nВыпало число {dice_val}!\nВы потеряли -{bet} монет.\nБаланс: {user['balance']:.2f}"
+        )
+    await callback.answer()
+
+# --- МАГАЗИН И XROCKET ---
 
 @dp.message(F.text == "🛒 Магазин (Купить монеты)")
 @dp.message(Command("shop"))
 async def process_shop(message: types.Message):
-    shop_inline_kb = InlineKeyboardMarkup(
-        inline_keyboard=[
-            [InlineKeyboardButton(text="💰 100 монет — 1 TON", callback_data="buy_100")],
-            [InlineKeyboardButton(text="🚀 500 монет — 4.5 TON", callback_data="buy_500")],
-            [InlineKeyboardButton(text="👑 1500 монет — 10 TON", callback_data="buy_1500")]
-        ]
-    )
+    shop_inline_kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="💰 100 монет — 1 TON", callback_data="buy_100")],
+        [InlineKeyboardButton(text="🚀 500 монет — 4.5 TON", callback_data="buy_500")],
+        [InlineKeyboardButton(text="👑 1500 монет — 10 TON", callback_data="buy_1500")]
+    ])
     await message.answer("🚀 Магазин xRocket Pay", reply_markup=shop_inline_kb)
 
 @dp.callback_query(F.data.startswith("buy_"))
@@ -81,7 +135,7 @@ async def process_buy_callback(callback: types.CallbackQuery):
                     ])
                     await callback.message.answer(f"🧾 Счет на {amount_str} монет ({price} TON):", reply_markup=pay_kb)
                 else:
-                    await callback.message.answer("⚠️ Ошибка счета в xRocket. Проверьте токен.")
+                    await callback.message.answer("⚠️ Ошибка счета в xRocket.")
         except Exception:
             await callback.message.answer("⚠️ Ошибка сети.")
     await callback.answer()
@@ -105,6 +159,7 @@ async def check_payment(callback: types.CallbackQuery):
 
 @dp.message(F.text == "🎁 Ежедневный бонус")
 @dp.message(Command("bonus"))
+
 async def process_bonus(message: types.Message):
     user = get_user(message.from_user.id, message.from_user.first_name)
     now = time.time()
