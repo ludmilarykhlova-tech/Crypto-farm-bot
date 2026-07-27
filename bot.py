@@ -14,8 +14,7 @@ dp = Dispatcher()
 users = {}
 
 IMG_MINE = "https://images.unsplash.com/photo-1543466835-00a7907e9de1?w=500&auto=format&fit=crop&q=60"
-IMG_PROFILE = "https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=500&auto=format&fit=crop&q=60"
-IMG_WIN = "https://images.unsplash.com/photo-1537151625747-768eb6cf92b2?w=500&auto=format&fit=crop&q=60"
+IMG_PROFILE = "https://photos.app.goo.gl/dda3yyps1zUXU4U98IMG_WIN = "https://images.unsplash.com/photo-1537151625747-768eb6cf92b2?w=500&auto=format&fit=crop&q=60"
 IMG_LOSE = "https://images.unsplash.com/photo-1541364983171-a8ba01e95cfc?w=500&auto=format&fit=crop&q=60"
 
 def get_user(user_id, name="Игрок"):
