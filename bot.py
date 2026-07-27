@@ -6,16 +6,19 @@ from aiohttp import web
 from aiogram import Bot, Dispatcher, types, F
 from aiogram.filters import Command
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.fsm.context import FSMContext
+from aiogram.fsm.state import State, StatesGroup
+from aiogram.fsm.storage.memory import MemoryStorage
 
-TOKEN = "8998631035:AAGj3IiYS0cqqNeKB4BTIO3DWDDpr-zXEuY"
+TOKEN = "8818091251:AAHLxobo0WNLkJ-RrjuMXuquA6xf5mrMA-g"
 XROCKET_API_TOKEN = "9a9e823f2bb0d99a7b3c8c4e6"
+
 bot = Bot(token=TOKEN)
-dp = Dispatcher()
+dp = Dispatcher(storage=MemoryStorage())
 users = {}
 
 IMG_MINE = "https://images.unsplash.com/photo-1543466835-00a7907e9de1?w=500&auto=format&fit=crop&q=60"
 IMG_PROFILE = "https://i.ibb.co/3ynvchrm/square-gwi-bear.jpg"
-IMG_LOSE = "https://images.unsplash.com/photo-1541364983171-a8ba01e95cfc?w=500&auto=format&fit=crop&q=60"
 
 def get_user(user_id, name="Игрок"):
     if user_id not in users:
@@ -24,20 +27,28 @@ def get_user(user_id, name="Игрок"):
         users[user_id]["name"] = name
     return users[user_id]
 
+# Состояния для ввода собственной ставки
+class UnicornGame(StatesGroup):
+    waiting_for_bet = State()
+
 main_keyboard = ReplyKeyboardMarkup(
     keyboard=[
         [KeyboardButton(text="⛏ Майнить"), KeyboardButton(text="💼 Профиль")],
-        [KeyboardButton(text="🎲 Игра: Кости"), KeyboardButton(text="🎰 Слоты (Казино)")],
-        [KeyboardButton(text="🪙 Орел или Решка"), KeyboardButton(text="🎯 Рулетка (Красное/Черное)")],
-        [KeyboardButton(text="🚀 Улучшить ферму"), KeyboardButton(text="🎁 Ежедневный бонус")],
-        [KeyboardButton(text="🛒 Магазин (Купить монеты)"), KeyboardButton(text="🏆 Топ игроков")]
+        [KeyboardButton(text="🦄 Полет Единорога"), KeyboardButton(text="🎁 Ежедневный бонус")],
+        [KeyboardButton(text="🚀 Улучшить ферму"), KeyboardButton(text="🛒 Магазин (Купить монеты)")],
+        [KeyboardButton(text="🏆 Топ игроков")]
     ],
     resize_keyboard=True
 )
+
 @dp.message(Command("start"))
-async def cmd_start(message: types.Message):
+async def cmd_start(message: types.Message, state: FSMContext):
+    await state.clear()
     get_user(message.from_user.id, message.from_user.first_name)
-    await message.answer("👋 **Добро пожаловать в My Pet Farm!**\n\nМайните монеты, играйте в кубик и развивайте питомца!", reply_markup=main_keyboard)
+    await message.answer(
+        "👋 **Добро пожаловать в My Pet Farm!**\n\nМайните монеты, запускайте единорога в полёт и развивайте питомца!", 
+        reply_markup=main_keyboard
+    )
 
 @dp.message(F.text == "⛏ Майнить")
 @dp.message(Command("mine"))
@@ -59,42 +70,95 @@ async def process_profile(message: types.Message):
         caption=f"💼 **Профиль {user['name']}:**\n\n💰 Баланс: **{user['balance']:.2f}** монет\n⚡ Уровень фермы: **{user['farm_level']} lvl**"
     )
 
-@dp.message(F.text == "🎲 Игра: Кости")
-async def process_dice_menu(message: types.Message):
-    user = get_user(message.from_user.id, message.from_user.first_name)
-    kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="1️⃣ Четное", callback_data="dice_even"), InlineKeyboardButton(text="2️⃣ Нечетное", callback_data="dice_odd")]
-    ])
-    await message.answer(f"🎲 **Игра в Кости**\nСтавка: **2.0 монеты**.\nУгадай, чётное или нечётное число выпадет!", reply_markup=kb)
+# ================= ИГРА: ПОЛЕТ ЕДИНОРОГА =================
 
-@dp.callback_query(F.data.startswith("dice_"))
-async def process_dice_play(callback: types.CallbackQuery):
-    user = get_user(callback.from_user.id, callback.from_user.first_name)
-    bet = 2.0
-    
-    if user["balance"] < bet:
-        await callback.answer("❌ Недостаточно монет для игры! Смайните ещё.", show_alert=True)
+@dp.message(F.text == "🦄 Полет Единорога")
+async def start_unicorn_game(message: types.Message, state: FSMContext):
+    user = get_user(message.from_user.id, message.from_user.first_name)
+    if user["balance"] <= 0:
+        await message.answer("❌ У вас 0 монет! Смайните немного монет, чтобы играть.")
         return
         
-    choice = callback.data.split("_")[1]
-    dice_val = random.randint(1, 6)
-    is_even = (dice_val % 2 == 0)
+    await message.answer(
+        f"🦄 **Полет Единорога!**\n\n💰 Ваш баланс: **{user['balance']:.2f}** монет.\n\nНапишите в чат **сумму ставки**, которую хотите поставить:"
+    )
+    await state.set_state(UnicornGame.waiting_for_bet)
+
+@dp.message(UnicornGame.waiting_for_bet)
+async def process_bet_input(message: types.Message, state: FSMContext):
+    user = get_user(message.from_user.id, message.from_user.first_name)
     
-    win = (choice == "even" and is_even) or (choice == "odd" and not is_even)
+    try:
+        bet = float(message.text.replace(",", "."))
+    except ValueError:
+        await message.answer("⚠️ Пожалуйста, введите корректное число (например: 2 или 5.5):")
+        return
+
+    if bet <= 0:
+        await message.answer("⚠️ Ставка должна быть больше 0! Введите сумму заново:")
+        return
+
+    if bet > user["balance"]:
+        await message.answer(f"❌ У вас нет столько монет! У вас на балансе: **{user['balance']:.2f}**. Введите сумму меньше:")
+        return
+
+    # Сохраняем ставку в память
+    await state.update_data(bet=bet)
+
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🌈 До Радуги (x1.5)", callback_data="uni_rainbow")],
+        [InlineKeyboardButton(text="☁️ До Облаков (x2.0)", callback_data="uni_clouds")],
+        [InlineKeyboardButton(text="⭐️ До Космоса (x5.0)", callback_data="uni_space")]
+    ])
     
-    if win:
-        user["balance"] += bet
-        await callback.message.answer_photo(
-            photo=IMG_WIN,
-            caption=f"🎯 **ПОПАДАНИЕ!**\nВыпало число **{dice_val}**!\nВы выиграли **+{bet}** монет!\nБаланс: **{user['balance']:.2f}**"
+    await message.answer(
+        f"Ставка принята: **{bet}** монет!\n\n✨ **Угадай, до куда долетит единорог?**", 
+        reply_markup=kb
+    )
+
+@dp.callback_query(F.data.startswith("uni_"))
+async def process_unicorn_flight(callback: types.CallbackQuery, state: FSMContext):
+    user_data = await state.get_data()
+    bet = user_data.get("bet")
+
+    if not bet:
+        await callback.answer("⚠️ Время ожидания истекло. Нажмите кнопку '🦄 Полет Единорога' заново.", show_alert=True)
+        return
+
+    user = get_user(callback.from_user.id, callback.from_user.first_name)
+    
+    if user["balance"] < bet:
+        await callback.answer("❌ Недостаточно средств!", show_alert=True)
+        await state.clear()
+        return
+
+    target = callback.data.split("_")[1]
+    
+    # Шансы: rainbow (70%), clouds (50%), space (20%)
+    chances = {"rainbow": 70, "clouds": 50, "space": 20}
+    multipliers = {"rainbow": 1.5, "clouds": 2.0, "space": 5.0}
+    names = {"rainbow": "🌈 Радуги", "clouds": "☁️ Облаков", "space": "⭐️ Космоса"}
+
+    roll = random.randint(1, 100)
+    is_win = roll <= chances[target]
+
+    if is_win:
+        win_amount = bet * multipliers[target]
+        profit = win_amount - bet
+        user["balance"] += profit
+        await callback.message.edit_text(
+            f"🦄✨ **Единорог успешно долетел до {names[target]}!**\n\n🎉 Вы угадали и выиграли **+{win_amount:.2f}** монет!\n💰 Ваш баланс: **{user['balance']:.2f}**"
         )
     else:
         user["balance"] -= bet
-        await callback.message.answer_photo(
-            photo=IMG_LOSE,
-            caption=f"💥 **ПРОМАХ!**\nВыпало число **{dice_val}**!\nВы потеряли **-{bet}** монет.\nБаланс: **{user['balance']:.2f}**"
+        await callback.message.edit_text(
+            f"🦄💨 **Единорог устал и приземлился раньше...**\n\n💥 Вы не долетели до {names[target]} и потеряли **-{bet:.2f}** монет.\n💰 Ваш баланс: **{user['balance']:.2f}**"
         )
+
+    await state.clear()
     await callback.answer()
+
+# ================= МАГАЗИН И ПРОЧЕЕ =================
 
 @dp.message(F.text == "🛒 Магазин (Купить монеты)")
 @dp.message(Command("shop"))
@@ -199,103 +263,3 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
-
-# ================= РАЗДЕЛ НОВЫХ ИГР =================
-
-@dp.message(F.text == "🎰 Слоты (Казино)")
-@dp.message(Command("slots"))
-async def process_slots(message: types.Message):
-    user = get_user(message.from_user.id, message.from_user.first_name)
-    bet = 3.0
-    
-    if user["balance"] < bet:
-        await message.answer(f"❌ Недостаточно монет! Ставка в слотах — **{bet}** монет.")
-        return
-        
-    user["balance"] -= bet
-    msg = await message.answer_dice(emoji="🎰")
-    val = msg.dice.value
-    await asyncio.sleep(2)  # Ждем пока докрутится анимация
-    
-    # В телеграме 64 = три 777
-    if val == 64:
-        win = 50.0
-        user["balance"] += win
-        await message.answer(f"💥 **ДЖЕКПОТ 777!** Вы выиграли **+{win}** монет!\nБаланс: **{user['balance']:.2f}**")
-    elif val in [1, 22, 43]:  # Три одинаковых символа
-        win = 10.0
-        user["balance"] += win
-        await message.answer(f"🎉 **ТРИ В РЯД!** Вы выиграли **+{win}** монет!\nБаланс: **{user['balance']:.2f}**")
-    else:
-        await message.answer(f"Увы, не повезло! -{bet} монет.\nБаланс: **{user['balance']:.2f}**")
-
-@dp.message(F.text == "🪙 Орел или Решка")
-@dp.message(Command("coin"))
-async def process_coin_menu(message: types.Message):
-    kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="🦅 Орел", callback_data="coin_eagle"), InlineKeyboardButton(text="🪙 Решка", callback_data="coin_tails")]
-    ])
-    await message.answer("🪙 **Орел или Решка**\nСтавка: **1.0 монета**.\nВыбирай сторону:", reply_markup=kb)
-
-@dp.callback_query(F.data.startswith("coin_"))
-async def process_coin_play(callback: types.CallbackQuery):
-    user = get_user(callback.from_user.id, callback.from_user.first_name)
-    bet = 1.0
-    
-    if user["balance"] < bet:
-        await callback.answer("❌ Недостаточно монет!", show_alert=True)
-        return
-        
-    choice = callback.data.split("_")[1]
-    res = random.choice(["eagle", "tails"])
-    res_text = "🦅 Орел" if res == "eagle" else "🪙 Решка"
-    
-    if choice == res:
-        user["balance"] += bet
-        await callback.message.answer(f"🎉 Выпал **{res_text}**! Вы выиграли **+{bet}** монет!\nБаланс: **{user['balance']:.2f}**")
-    else:
-        user["balance"] -= bet
-        await callback.message.answer(f"💥 Выпал **{res_text}**! Вы проиграли **-{bet}** монет.\nБаланс: **{user['balance']:.2f}**")
-    await callback.answer()
-
-@dp.message(F.text == "🎯 Рулетка (Красное/Черное)")
-@dp.message(Command("roulette"))
-async def process_roulette_menu(message: types.Message):
-    kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="🔴 Красное", callback_data="roul_red"), InlineKeyboardButton(text="⚫ Черное", callback_data="roul_black")],
-        [InlineKeyboardButton(text="🟢 Зеленое (Зеро x14)", callback_data="roul_zero")]
-    ])
-    await message.answer("🎯 **Русская Рулетка**\nСтавка: **5.0 монет**.\nСделай свою ставку:", reply_markup=kb)
-
-@dp.callback_query(F.data.startswith("roul_"))
-async def process_roulette_play(callback: types.CallbackQuery):
-    user = get_user(callback.from_user.id, callback.from_user.first_name)
-    bet = 5.0
-    
-    if user["balance"] < bet:
-        await callback.answer("❌ Недостаточно монет!", show_alert=True)
-        return
-        
-    choice = callback.data.split("_")[1]
-    # 0 - зеленое, 1-18 красное, 19-36 черное
-    spin = random.randint(0, 36)
-    
-    if spin == 0:
-        res = "zero"
-        color_text = "🟢 ЗЕРО (0)"
-    elif spin % 2 == 0:
-        res = "red"
-        color_text = f"🔴 Красное ({spin})"
-    else:
-        res = "black"
-        color_text = f"⚫ Черное ({spin})"
-        
-    if choice == res:
-        win_mult = 14 if res == "zero" else 2
-        win_amount = bet * win_mult
-        user["balance"] += (win_amount - bet)
-        await callback.message.answer(f"🎉 Выпало **{color_text}**!\nВы выиграли **+{win_amount}** монет!\nБаланс: **{user['balance']:.2f}**")
-    else:
-        user["balance"] -= bet
-        await callback.message.answer(f"💥 Выпало **{color_text}**!\nВы потеряли **-{bet}** монет.\nБаланс: **{user['balance']:.2f}**")
-    await callback.answer()
