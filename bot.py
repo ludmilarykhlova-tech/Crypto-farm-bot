@@ -10,8 +10,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.storage.memory import MemoryStorage
 
-TOKEN = "8818091251:AAHLxobo0WNLkJ-RrjuMXuquA6xf5mrMA-g"
-XROCKET_API_TOKEN = "9a9e823f2bb0d99a7b3c8c4e6"
+TOKEN = "8998631035:AAGj3IiYS0cqqNeKB4BTIO3DWDDpr-zXEuYXROCKET_API_TOKEN = "9a9e823f2bb0d99a7b3c8c4e6"
 
 bot = Bot(token=TOKEN)
 dp = Dispatcher(storage=MemoryStorage())
