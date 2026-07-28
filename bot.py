@@ -75,9 +75,9 @@ main_keyboard = ReplyKeyboardMarkup(
     keyboard=[
         [KeyboardButton(text="⛏ Майнить"), KeyboardButton(text="💼 Профиль")],
         [KeyboardButton(text="🐾 Животные"), KeyboardButton(text="🦄 Высота Единорога")],
-        [KeyboardButton(text="🐱 Прыжок Кота"), KeyboardButton(text="💎 Задания (Алмазы)")],
-        [KeyboardButton(text="📈 Биржа токенов"), KeyboardButton(text="🎁 Бонус (10 PWI)")],
-        [KeyboardButton(text="🛒 Магазин xRocket"), KeyboardButton(text="🏆 Топ игроков")]
+        [KeyboardButton(text="💎 Задания (Алмазы)"), KeyboardButton(text="📈 Биржа Токенов")],
+        [KeyboardButton(text="🎁 Бонус (10 PWI)"), KeyboardButton(text="🛒 Р2Р Маркет")],
+        [KeyboardButton(text="🏆 Топ")]
     ],
     resize_keyboard=True
 )
@@ -92,7 +92,7 @@ async def cmd_start(message: types.Message, state: FSMContext):
         reply_markup=main_keyboard
     )
 
-@dp.message(F.text == "⛏ Майнить")
+@dp.message(F.text.in_({"⛏ Майнить", "Майнить"}))
 async def process_mine(message: types.Message, state: FSMContext):
     await state.clear()
     user = get_user(message.from_user.id, message.from_user.first_name)
@@ -111,7 +111,7 @@ async def process_mine(message: types.Message, state: FSMContext):
         caption=f"⛏ Смайнено: **+{mined:.1f} PWI**\n💰 Баланс: **{user['pwi']:.2f} PWI**"
     )
 
-@dp.message(F.text == "💼 Профиль")
+@dp.message(F.text.in_({"💼 Профиль", "Профиль"}))
 async def process_profile(message: types.Message, state: FSMContext):
     await state.clear()
     u = get_user(message.from_user.id, message.from_user.first_name)
@@ -126,7 +126,7 @@ async def process_profile(message: types.Message, state: FSMContext):
     )
     await message.answer_photo(photo=IMG_PROFILE, caption=text)
 
-@dp.message(F.text == "🐾 Животные")
+@dp.message(F.text.in_({"🐾 Животные", "Животные"}))
 async def process_pets_menu(message: types.Message, state: FSMContext):
     await state.clear()
     kb = InlineKeyboardMarkup(inline_keyboard=[
@@ -176,7 +176,7 @@ async def buy_pet(callback: types.CallbackQuery):
     await callback.message.answer(f"🎉 Вы успешно купили **{pet['name']}**!")
     await callback.answer()
 
-@dp.message(F.text == "🦄 Высота Единорога")
+@dp.message(F.text.in_({"🦄 Высота Единорога", "Высота Единорога"}))
 async def start_unicorn(message: types.Message, state: FSMContext):
     await state.clear()
     u = get_user(message.from_user.id, message.from_user.first_name)
@@ -231,39 +231,7 @@ async def unicorn_height(message: types.Message, state: FSMContext):
         await message.answer(f"💥 Бабах! Единорог упал на высоте **{actual_height}** (не долетел до {target_h}).\nПроигрыш: **-{bet:.2f} PWI**.")
     await state.clear()
 
-@dp.message(F.text == "🐱 Прыжок Кота")
-async def start_cat_jump(message: types.Message, state: FSMContext):
-    await state.clear()
-    u = get_user(message.from_user.id, message.from_user.first_name)
-    await message.answer_photo(
-        photo=IMG_GAME,
-        caption=f"🐱 **Прыжок Кота**\nКот прыгает через преграды. Угадай, перепрыгнет ли он?\nБаланс: **{u['pwi']:.2f} PWI**\n\nВведите ставку:"
-    )
-    await state.set_state(CatJumpGame.waiting_for_bet)
-
-@dp.message(CatJumpGame.waiting_for_bet)
-async def cat_jump_play(message: types.Message, state: FSMContext):
-    try:
-        bet = float(message.text.replace(",", "."))
-    except ValueError:
-        await message.answer("⚠️ Введите число:")
-        return
-    u = get_user(message.from_user.id, message.from_user.first_name)
-    if bet <= 0 or bet > u["pwi"]:
-        await message.answer("⚠️ Неверная ставка!")
-        return
-    
-    success = random.choice([True, False])
-    if success:
-        win = bet * 1.8
-        u["pwi"] += (win - bet)
-        await message.answer(f"🎉 Кот успешно перепрыгнул препятствие!\nВы выиграли **+{win:.2f} PWI**!")
-    else:
-        u["pwi"] -= bet
-        await message.answer(f"😿 Кот зацепился за сугроб и упал...\nПроигрыш: **-{bet:.2f} PWI**.")
-    await state.clear()
-
-@dp.message(F.text == "💎 Задания (Алмазы)")
+@dp.message(F.text.in_({"💎 Задания (Алмазы)", "Задания (Алмазы)"}))
 async def process_tasks(message: types.Message, state: FSMContext):
     await state.clear()
     kb = InlineKeyboardMarkup(inline_keyboard=[
@@ -284,7 +252,7 @@ async def create_task(callback: types.CallbackQuery):
     await callback.message.answer("💡 Чтобы заказать продвижение канала (0.05 TON за 1 подписчика), оплатите через xRocket в Магазине.")
     await callback.answer()
 
-@dp.message(F.text == "📈 Биржа токенов")
+@dp.message(F.text.in_({"📈 Биржа токенов", "📈 Биржа Токенов", "Биржа токенов", "Биржа Токенов"}))
 async def process_token_market(message: types.Message, state: FSMContext):
     await state.clear()
     text = "📈 **Биржа Пользовательских Токенов PWI:**\n\n"
@@ -293,7 +261,7 @@ async def process_token_market(message: types.Message, state: FSMContext):
     text += "\n💡 Курс обновляется каждые 30 минут!"
     await message.answer(text)
 
-@dp.message(F.text == "🎁 Бонус (10 PWI)")
+@dp.message(F.text.in_({"🎁 Бонус (10 PWI)", "Бонус (10 PWI)"}))
 async def process_bonus(message: types.Message, state: FSMContext):
     await state.clear()
     u = get_user(message.from_user.id, message.from_user.first_name)
@@ -305,7 +273,7 @@ async def process_bonus(message: types.Message, state: FSMContext):
     u["pwi"] += 10.0
     await message.answer("🎁 Вы получили **+10.0 PWI**!")
 
-@dp.message(F.text == "🛒 Магазин xRocket")
+@dp.message(F.text.in_({"🛒 Р2Р Маркет", "🛒 P2P Маркет", "🛒 Магазин xRocket", "Р2Р Маркет", "P2P Маркет", "Магазин xRocket"}))
 async def process_shop(message: types.Message, state: FSMContext):
     await state.clear()
     kb = InlineKeyboardMarkup(inline_keyboard=[
@@ -313,7 +281,7 @@ async def process_shop(message: types.Message, state: FSMContext):
         [InlineKeyboardButton(text="🎒 Купить 1 Мешок — 0.3 TON", callback_data="buy_bag_1")],
         [InlineKeyboardButton(text="🤖 Купить Меха-Дракона — 0.5 TON", callback_data="buy_pet_mecha_dragon")]
     ])
-    await message.answer_photo(photo=IMG_SHOP, caption="🛒 **Магазин xRocket Pay**\nПокупка премиум-ресурсов и супер-питомцев за TON:", reply_markup=kb)
+    await message.answer_photo(photo=IMG_SHOP, caption="🛒 **Магазин / P2P Маркет**\nПокупка премиум-ресурсов и супер-питомцев за TON:", reply_markup=kb)
 
 @dp.callback_query(F.data.startswith("buy_"))
 async def xrocket_buy(callback: types.CallbackQuery):
@@ -332,7 +300,7 @@ async def xrocket_buy(callback: types.CallbackQuery):
         await callback.message.answer("🤖 Успешно! Супер-питомец **Меха-Дракон** добавлен на вашу ферму!")
     await callback.answer()
 
-@dp.message(F.text == "🏆 Топ игроков")
+@dp.message(F.text.in_({"🏆 Топ", "🏆 Топ игроков", "Топ", "Топ игроков"}))
 async def process_top(message: types.Message, state: FSMContext):
     await state.clear()
     if not users:
