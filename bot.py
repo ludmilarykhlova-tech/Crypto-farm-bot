@@ -21,10 +21,10 @@ custom_tokens = {"$PWI": {"price": 1.0, "change": "+0%"}}
 
 IMG_MINE = "https://images.unsplash.com/photo-1543466835-00a7907e9de1?w=500&auto=format&fit=crop&q=60"
 IMG_PROFILE = "https://i.ibb.co/3ynvchrm/square-gwi-bear.jpg"
-IMG_UNICORN = "https://images.unsplash.com/photo-1535268647677-300dbf3d78d1?w=500&auto=format&fit=crop&q=60"
+IMG_UNICORN = "https://images.unsplash.com/photo-1579783902614-a3fb3927b675?w=500&auto=format&fit=crop&q=60"
 IMG_PETS = "https://images.unsplash.com/photo-1583511655857-d19b40a7a54e?w=500&auto=format&fit=crop&q=60"
 IMG_SHOP = "https://images.unsplash.com/photo-1550989460-0adf9ea622e2?w=500&auto=format&fit=crop&q=60"
-IMG_GAME = "https://images.unsplash.com/photo-1561948955-570b270e7c36?w=500&auto=format&fit=crop&q=60"
+IMG_GAME = "https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=500&auto=format&fit=crop&q=60"
 
 PETS_CATALOG = {
     "hamster": {"name": "🐹 Хомяк", "cost_pwi": 50, "income": 1, "type": "common"},
@@ -93,7 +93,8 @@ async def cmd_start(message: types.Message, state: FSMContext):
     )
 
 @dp.message(F.text == "⛏ Майнить")
-async def process_mine(message: types.Message):
+async def process_mine(message: types.Message, state: FSMContext):
+    await state.clear()
     user = get_user(message.from_user.id, message.from_user.first_name)
     now = time.time()
     if now - user["last_mine"] < 3:
@@ -111,7 +112,8 @@ async def process_mine(message: types.Message):
     )
 
 @dp.message(F.text == "💼 Профиль")
-async def process_profile(message: types.Message):
+async def process_profile(message: types.Message, state: FSMContext):
+    await state.clear()
     u = get_user(message.from_user.id, message.from_user.first_name)
     total_pets = sum(u["pets"].values())
     text = (
@@ -125,7 +127,8 @@ async def process_profile(message: types.Message):
     await message.answer_photo(photo=IMG_PROFILE, caption=text)
 
 @dp.message(F.text == "🐾 Животные")
-async def process_pets_menu(message: types.Message):
+async def process_pets_menu(message: types.Message, state: FSMContext):
+    await state.clear()
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="📦 Обычные (За PWI)", callback_data="cat_common")],
         [InlineKeyboardButton(text="💼 Премиум (За Мешки)", callback_data="cat_premium")],
@@ -175,6 +178,7 @@ async def buy_pet(callback: types.CallbackQuery):
 
 @dp.message(F.text == "🦄 Высота Единорога")
 async def start_unicorn(message: types.Message, state: FSMContext):
+    await state.clear()
     u = get_user(message.from_user.id, message.from_user.first_name)
     if u["pwi"] < 1:
         await message.answer("❌ У вас мало PWI монет!")
@@ -229,6 +233,7 @@ async def unicorn_height(message: types.Message, state: FSMContext):
 
 @dp.message(F.text == "🐱 Прыжок Кота")
 async def start_cat_jump(message: types.Message, state: FSMContext):
+    await state.clear()
     u = get_user(message.from_user.id, message.from_user.first_name)
     await message.answer_photo(
         photo=IMG_GAME,
@@ -259,7 +264,8 @@ async def cat_jump_play(message: types.Message, state: FSMContext):
     await state.clear()
 
 @dp.message(F.text == "💎 Задания (Алмазы)")
-async def process_tasks(message: types.Message):
+async def process_tasks(message: types.Message, state: FSMContext):
+    await state.clear()
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="💎 Получить Алмаз за подписку", callback_data="do_task")],
         [InlineKeyboardButton(text="➕ Создать свое задание (0.05 TON)", callback_data="create_task")]
@@ -279,7 +285,8 @@ async def create_task(callback: types.CallbackQuery):
     await callback.answer()
 
 @dp.message(F.text == "📈 Биржа токенов")
-async def process_token_market(message: types.Message):
+async def process_token_market(message: types.Message, state: FSMContext):
+    await state.clear()
     text = "📈 **Биржа Пользовательских Токенов PWI:**\n\n"
     for symbol, data in custom_tokens.items():
         text += f"🔹 **{symbol}** — Курс: `{data['price']}` | Изменение: `{data['change']}`\n"
@@ -287,7 +294,8 @@ async def process_token_market(message: types.Message):
     await message.answer(text)
 
 @dp.message(F.text == "🎁 Бонус (10 PWI)")
-async def process_bonus(message: types.Message):
+async def process_bonus(message: types.Message, state: FSMContext):
+    await state.clear()
     u = get_user(message.from_user.id, message.from_user.first_name)
     now = time.time()
     if now - u["last_bonus"] < 86400:
@@ -298,7 +306,8 @@ async def process_bonus(message: types.Message):
     await message.answer("🎁 Вы получили **+10.0 PWI**!")
 
 @dp.message(F.text == "🛒 Магазин xRocket")
-async def process_shop(message: types.Message):
+async def process_shop(message: types.Message, state: FSMContext):
+    await state.clear()
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="💎 Купить 5 Алмазов — 0.1 TON", callback_data="buy_diag_5")],
         [InlineKeyboardButton(text="🎒 Купить 1 Мешок — 0.3 TON", callback_data="buy_bag_1")],
@@ -324,7 +333,8 @@ async def xrocket_buy(callback: types.CallbackQuery):
     await callback.answer()
 
 @dp.message(F.text == "🏆 Топ игроков")
-async def process_top(message: types.Message):
+async def process_top(message: types.Message, state: FSMContext):
+    await state.clear()
     if not users:
         await message.answer("🏆 Топ пока пуст!")
         return
