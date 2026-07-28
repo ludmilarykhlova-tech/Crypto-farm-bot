@@ -81,13 +81,14 @@ main_keyboard = ReplyKeyboardMarkup(
     ],
     resize_keyboard=True
 )
+
 @dp.message(Command("start"))
 async def cmd_start(message: types.Message, state: FSMContext):
     await state.clear()
     get_user(message.from_user.id, message.from_user.first_name)
     await message.answer_photo(
         photo=IMG_PROFILE,
-        caption="👋 Добро пожаловать в PWI Farm World!\n\nРазвивай ферму, играй в мини-игры и торгуй на бирже!",
+        caption="👋 **Добро пожаловать в PWI Farm World!**\n\nРазвивай ферму, играй в мини-игры и торгуй на бирже!",
         reply_markup=main_keyboard
     )
 
@@ -106,7 +107,7 @@ async def process_mine(message: types.Message):
     
     await message.answer_photo(
         photo=IMG_MINE,
-        caption=f"⛏ Смайнено: +{mined:.1f} PWI\n💰 Баланс: {user['pwi']:.2f} PWI"
+        caption=f"⛏ Смайнено: **+{mined:.1f} PWI**\n💰 Баланс: **{user['pwi']:.2f} PWI**"
     )
 
 @dp.message(F.text == "💼 Профиль")
@@ -114,12 +115,12 @@ async def process_profile(message: types.Message):
     u = get_user(message.from_user.id, message.from_user.first_name)
     total_pets = sum(u["pets"].values())
     text = (
-        f"💼 Профиль {u['name']}:\n\n"
-        f"🪙 Баланс PWI: {u['pwi']:.2f}\n"
-        f"💎 Алмазы: {u['diamonds']}\n"
-        f"🎒 Мешки с деньгами: {u['bags']}\n"
-        f"⚡ Уровень фермы: {u['farm_level']} lvl\n"
-        f"🐾 Всего питомцев: {total_pets} шт."
+        f"💼 **Профиль {u['name']}:**\n\n"
+        f"🪙 Баланс PWI: **{u['pwi']:.2f}**\n"
+        f"💎 Алмазы: **{u['diamonds']}**\n"
+        f"🎒 Мешки с деньгами: **{u['bags']}**\n"
+        f"⚡ Уровень фермы: **{u['farm_level']} lvl**\n"
+        f"🐾 Всего питомцев: **{total_pets} шт.**"
     )
     await message.answer_photo(photo=IMG_PROFILE, caption=text)
 
@@ -130,7 +131,7 @@ async def process_pets_menu(message: types.Message):
         [InlineKeyboardButton(text="💼 Премиум (За Мешки)", callback_data="cat_premium")],
         [InlineKeyboardButton(text="👑 Супер (За TON)", callback_data="cat_super")]
     ])
-    await message.answer_photo(photo=IMG_PETS, caption="🐾 Каталог Животных (17 видов):\nВыберите категорию:", reply_markup=kb)
+    await message.answer_photo(photo=IMG_PETS, caption="🐾 **Каталог Животных (17 видов):**\nВыберите категорию:", reply_markup=kb)
 
 @dp.callback_query(F.data.startswith("cat_"))
 async def process_category(callback: types.CallbackQuery):
@@ -169,9 +170,10 @@ async def buy_pet(callback: types.CallbackQuery):
         return
 
     u["pets"][pet_key] += 1
-    await callback.message.answer(f"🎉 Вы успешно купили {pet['name']}!")
+    await callback.message.answer(f"🎉 Вы успешно купили **{pet['name']}**!")
     await callback.answer()
-    @dp.message(F.text == "🦄 Высота Единорога")
+
+@dp.message(F.text == "🦄 Высота Единорога")
 async def start_unicorn(message: types.Message, state: FSMContext):
     u = get_user(message.from_user.id, message.from_user.first_name)
     if u["pwi"] < 1:
@@ -179,7 +181,7 @@ async def start_unicorn(message: types.Message, state: FSMContext):
         return
     await message.answer_photo(
         photo=IMG_UNICORN,
-        caption=f"🦄 Высота Единорога\nБаланс: {u['pwi']:.2f} PWI\n\nВведите сумму ставки PWI:"
+        caption=f"🦄 **Высота Единорога**\nБаланс: **{u['pwi']:.2f} PWI**\n\nВведите сумму ставки PWI:"
     )
     await state.set_state(UnicornGame.waiting_for_bet)
 
@@ -195,7 +197,7 @@ async def unicorn_bet(message: types.Message, state: FSMContext):
         await message.answer("⚠️ Неверная ставка!")
         return
     await state.update_data(bet=bet)
-    await message.answer("✨ Задайте целевую высоту полёта (от 1.01 до 36):")
+    await message.answer("✨ Задайте целевую **высоту полёта** (от 1.01 до 36):")
     await state.set_state(UnicornGame.waiting_for_height)
 
 @dp.message(UnicornGame.waiting_for_height)
@@ -219,10 +221,10 @@ async def unicorn_height(message: types.Message, state: FSMContext):
     if actual_height >= target_h:
         win = bet * mult
         u["pwi"] += (win - bet)
-        await message.answer(f"🦄 УРА! Единорог набрал высоту {actual_height}!\nВы угадали цель {target_h} и выиграли +{win:.2f} PWI (x{mult})!")
+        await message.answer(f"🦄 УРА! Единорог набрал высоту **{actual_height}**!\nВы угадали цель **{target_h}** и выиграли **+{win:.2f} PWI** (x{mult})!")
     else:
         u["pwi"] -= bet
-        await message.answer(f"💥 Бабах! Единорог упал на высоте {actual_height} (не долетел до {target_h}).\nПроигрыш: -{bet:.2f} PWI.")
+        await message.answer(f"💥 Бабах! Единорог упал на высоте **{actual_height}** (не долетел до {target_h}).\nПроигрыш: **-{bet:.2f} PWI**.")
     await state.clear()
 
 @dp.message(F.text == "🐱 Прыжок Кота")
@@ -230,7 +232,7 @@ async def start_cat_jump(message: types.Message, state: FSMContext):
     u = get_user(message.from_user.id, message.from_user.first_name)
     await message.answer_photo(
         photo=IMG_GAME,
-        caption=f"🐱 Прыжок Кота\nКот прыгает через преграды. Угадай, перепрыгнет ли он?\nБаланс: {u['pwi']:.2f} PWI\n\nВведите ставку:"
+        caption=f"🐱 **Прыжок Кота**\nКот прыгает через преграды. Угадай, перепрыгнет ли он?\nБаланс: **{u['pwi']:.2f} PWI**\n\nВведите ставку:"
     )
     await state.set_state(CatJumpGame.waiting_for_bet)
 
@@ -250,10 +252,10 @@ async def cat_jump_play(message: types.Message, state: FSMContext):
     if success:
         win = bet * 1.8
         u["pwi"] += (win - bet)
-        await message.answer(f"🎉 Кот успешно перепрыгнул препятствие!\nВы выиграли +{win:.2f} PWI!")
+        await message.answer(f"🎉 Кот успешно перепрыгнул препятствие!\nВы выиграли **+{win:.2f} PWI**!")
     else:
         u["pwi"] -= bet
-        await message.answer(f"😿 Кот зацепился за сугроб и упал...\nПроигрыш: -{bet:.2f} PWI.")
+        await message.answer(f"😿 Кот зацепился за сугроб и упал...\nПроигрыш: **-{bet:.2f} PWI**.")
     await state.clear()
 
 @dp.message(F.text == "💎 Задания (Алмазы)")
@@ -262,12 +264,13 @@ async def process_tasks(message: types.Message):
         [InlineKeyboardButton(text="💎 Получить Алмаз за подписку", callback_data="do_task")],
         [InlineKeyboardButton(text="➕ Создать свое задание (0.05 TON)", callback_data="create_task")]
     ])
-    await message.answer("💎 Биржа Заданий:\nВыполняй задания, подписывайся на каналы и получай Алмазы!", reply_markup=kb)
-    @dp.callback_query(F.data == "do_task")
+    await message.answer("💎 **Биржа Заданий:**\nВыполняй задания, подписывайся на каналы и получай Алмазы!", reply_markup=kb)
+
+@dp.callback_query(F.data == "do_task")
 async def do_task(callback: types.CallbackQuery):
     u = get_user(callback.from_user.id, callback.from_user.first_name)
     u["diamonds"] += 1
-    await callback.message.answer("🎉 Задание выполнено! Вам зачислен +1 Алмаз 💎.")
+    await callback.message.answer("🎉 Задание выполнено! Вам зачислен **+1 Алмаз 💎**.")
     await callback.answer()
 
 @dp.callback_query(F.data == "create_task")
@@ -277,9 +280,9 @@ async def create_task(callback: types.CallbackQuery):
 
 @dp.message(F.text == "📈 Биржа токенов")
 async def process_token_market(message: types.Message):
-    text = "📈 Биржа Пользовательских Токенов PWI:\n\n"
+    text = "📈 **Биржа Пользовательских Токенов PWI:**\n\n"
     for symbol, data in custom_tokens.items():
-        text += f"🔹 {symbol} — Курс: {data['price']} | Изменение: {data['change']}\n"
+        text += f"🔹 **{symbol}** — Курс: `{data['price']}` | Изменение: `{data['change']}`\n"
     text += "\n💡 Курс обновляется каждые 30 минут!"
     await message.answer(text)
 
@@ -292,7 +295,7 @@ async def process_bonus(message: types.Message):
         return
     u["last_bonus"] = now
     u["pwi"] += 10.0
-    await message.answer("🎁 Вы получили +10.0 PWI!")
+    await message.answer("🎁 Вы получили **+10.0 PWI**!")
 
 @dp.message(F.text == "🛒 Магазин xRocket")
 async def process_shop(message: types.Message):
@@ -301,7 +304,7 @@ async def process_shop(message: types.Message):
         [InlineKeyboardButton(text="🎒 Купить 1 Мешок — 0.3 TON", callback_data="buy_bag_1")],
         [InlineKeyboardButton(text="🤖 Купить Меха-Дракона — 0.5 TON", callback_data="buy_pet_mecha_dragon")]
     ])
-    await message.answer_photo(photo=IMG_SHOP, caption="🛒 Магазин xRocket Pay\nПокупка премиум-ресурсов и супер-питомцев за TON:", reply_markup=kb)
+    await message.answer_photo(photo=IMG_SHOP, caption="🛒 **Магазин xRocket Pay**\nПокупка премиум-ресурсов и супер-питомцев за TON:", reply_markup=kb)
 
 @dp.callback_query(F.data.startswith("buy_"))
 async def xrocket_buy(callback: types.CallbackQuery):
@@ -309,15 +312,15 @@ async def xrocket_buy(callback: types.CallbackQuery):
     if "diag" in action:
         u = get_user(callback.from_user.id, callback.from_user.first_name)
         u["diamonds"] += 5
-        await callback.message.answer("🎉 Успешно! Вам зачислено +5 Алмазов 💎 (Тестовая покупка xRocket).")
+        await callback.message.answer("🎉 Успешно! Вам зачислено **+5 Алмазов 💎** (Тестовая покупка xRocket).")
     elif "bag" in action:
         u = get_user(callback.from_user.id, callback.from_user.first_name)
         u["bags"] += 1
-        await callback.message.answer("🎉 Успешно! Вам зачислен +1 Мешок с деньгами 🎒.")
+        await callback.message.answer("🎉 Успешно! Вам зачислен **+1 Мешок с деньгами 🎒**.")
     elif "mecha_dragon" in action:
         u = get_user(callback.from_user.id, callback.from_user.first_name)
         u["pets"]["mecha_dragon"] += 1
-        await callback.message.answer("🤖 Успешно! Супер-питомец Меха-Дракон добавлен на вашу ферму!")
+        await callback.message.answer("🤖 Успешно! Супер-питомец **Меха-Дракон** добавлен на вашу ферму!")
     await callback.answer()
 
 @dp.message(F.text == "🏆 Топ игроков")
@@ -326,7 +329,7 @@ async def process_top(message: types.Message):
         await message.answer("🏆 Топ пока пуст!")
         return
     sorted_users = sorted(users.values(), key=lambda x: x["pwi"], reverse=True)[:10]
-    top_text = "🏆 ТОП-10 ИГРОКОВ PWI:\n\n" + "\n".join([f"{i}. {u['name']} — {u['pwi']:.2f} PWI" for i, u in enumerate(sorted_users, 1)])
+    top_text = "🏆 **ТОП-10 ИГРОКОВ PWI:**\n\n" + "\n".join([f"{i}. {u['name']} — **{u['pwi']:.2f} PWI**" for i, u in enumerate(sorted_users, 1)])
     await message.answer(top_text)
 
 async def handle_health_check(request):
@@ -343,5 +346,5 @@ async def main():
     await start_web_server()
     await dp.start_polling(bot)
 
-if name == "main":
+if __name__ == "__main__":
     asyncio.run(main())
